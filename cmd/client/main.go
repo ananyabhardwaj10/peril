@@ -35,6 +35,49 @@ func main() {
 
 	fmt.Printf("Queue %v declared and bound!\n", queue.Name)
 
+	game_state := gamelogic.NewGameState(userName)
+
+	for {
+		input := gamelogic.GetInput()
+		if len(input) == 0 {
+			continue
+		}
+
+		command := input[0]
+
+		switch command {
+		case "spawn":
+			err = game_state.CommandSpawn(input)
+			if err != nil {
+				fmt.Printf("error spawning the location: %v", err)
+			}
+		
+		case "move":
+			_, err := game_state.CommandMove(input)
+			if err != nil {
+				fmt.Printf("error moving the army: %v", err)
+			} 
+		
+		case "status":
+			game_state.CommandStatus()
+
+		case  "help":
+			gamelogic.PrintClientHelp()
+
+		case "spam":
+			fmt.Println("Spamming not allowed yet!")
+
+		case "quit":
+			gamelogic.PrintQuit()
+			return 
+
+		default:
+			fmt.Println("Please enter a valid command")
+			continue
+		}
+
+	}
+
 	signalChan := make(chan os.Signal, 1)
 	signal.Notify(signalChan, os.Interrupt)
 	<-signalChan
