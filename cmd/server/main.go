@@ -26,6 +26,13 @@ func main() {
 		log.Fatal("Unable to create a new channel using the connection")
 	}
 
+	_, queue, err := pubsub.DeclareAndBind(connection, routing.ExchangePerilDirect, "game_logs", "game_logs.*", pubsub.SimpleQueueDurable)
+	if err != nil {
+		log.Fatalf("Error creating and binding the queue", err)
+	}
+
+	fmt.Printf("Queue %v declared and bound!\n", queue.Name)
+
 	gamelogic.PrintServerHelp()
 
 	for {
@@ -59,6 +66,7 @@ func main() {
 			log.Println("Unknown command")
 		}
 	}
+
 
 	signalChan := make(chan os.Signal, 1)
 	signal.Notify(signalChan, os.Interrupt)
