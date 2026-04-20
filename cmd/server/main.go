@@ -26,7 +26,19 @@ func main() {
 		log.Fatal("Unable to create a new channel using the connection")
 	}
 
-	_, queue, err := pubsub.DeclareAndBind(connection, routing.ExchangePerilDirect, "game_logs", "game_logs.*", pubsub.SimpleQueueDurable)
+	err = ch.ExchangeDeclare(routing.ExchangePerilDirect, "direct", true, false, false, false, nil)
+	if err != nil {
+		log.Fatal("Unable to declare direct exchange")
+	}
+
+	err = ch.ExchangeDeclare(routing.ExchangePerilTopic, "topic", true, false, false, false, nil)
+	if err != nil {
+		log.Fatal("Unable to declare topic exchange")
+	}
+
+	key := routing.GameLogSlug + "." + "*"
+
+	_, queue, err := pubsub.DeclareAndBind(connection, routing.ExchangePerilTopic, routing.GameLogSlug, key, pubsub.SimpleQueueDurable)
 	if err != nil {
 		log.Fatalf("Error creating and binding the queue", err)
 	}
