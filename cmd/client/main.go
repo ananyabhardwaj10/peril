@@ -3,8 +3,6 @@ package main
 import (
 	"fmt"
 	"log"
-	"os"
-	"os/signal"
 	"github.com/bootdotdev/learn-pub-sub-starter/internal/gamelogic"
 	"github.com/bootdotdev/learn-pub-sub-starter/internal/pubsub"
 	"github.com/bootdotdev/learn-pub-sub-starter/internal/routing"
@@ -21,6 +19,11 @@ func main() {
 	defer connection.Close()
 	fmt.Println("Successful Connection")
 
+	ch, err := connection.Channel()
+	if err != nil {
+		log.Fatal("Unable to create a new channel using the connection")
+	}
+
 	userName, err := gamelogic.ClientWelcome()
 	if err != nil {
 		log.Fatalf("Unable to get the username: %v", err)
@@ -31,10 +34,19 @@ func main() {
 	game_state := gamelogic.NewGameState(userName)
 
 	err = pubsub.SubscribeJSON(connection, routing.ExchangePerilDirect, queueName, routing.PauseKey, pubsub.SimpleQueueTransient, handlerPause(game_state))
-
 	if err != nil {
 		log.Fatalf("error: %v", err)
 	}
+
+	key := routing.ArmyMovesPrefix + "." + "*"
+	qName := routing.ArmyMovesPrefix + "." + userName
+
+	err = pubsub.SubscribeJSON(connection, routing.ExchangePerilTopic, qName, key, pubsub.SimpleQueueTransient, handlerMove(game_state))
+	if err != nil {
+		fmt.Printf("error: %v", err)
+	}
+
+	fmt.Print("> ")
 
 	for {
 		input := gamelogic.GetInput()
@@ -52,10 +64,20 @@ func main() {
 			}
 		
 		case "move":
-			_, err := game_state.CommandMove(input)
+			armyMove, err := game_state.CommandMove(input)
 			if err != nil {
 				fmt.Printf("error moving the army: %v", err)
-			} 
+				continue
+			}
+
+			routing_key := routing.ArmyMovesPrefix + "." + userName
+
+			err = pubsub.PublishJSON(ch, routing.ExchangePerilTopic, routing_key, armyMove)
+			if err != nil {
+				fmt.Printf("error: %v", err)
+			} else {
+				log.Print("Move was published successfully")
+			}
 		
 		case "status":
 			game_state.CommandStatus()
@@ -76,10 +98,4 @@ func main() {
 		}
 
 	}
-
-	signalChan := make(chan os.Signal, 1)
-	signal.Notify(signalChan, os.Interrupt)
-	<-signalChan
-
-	fmt.Println("Program shutting down. Closing the connection")
 }
