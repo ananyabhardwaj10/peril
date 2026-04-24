@@ -29,9 +29,17 @@ func main() {
 		log.Fatalf("Unable to get the username: %v", err)
 	}
 
+
 	queueName := routing.PauseKey + "." + userName
 
 	game_state := gamelogic.NewGameState(userName)
+
+	war_routing_key := routing.WarRecognitionsPrefix + "." + "*"
+
+	err = pubsub.SubscribeJSON(connection, routing.ExchangePerilTopic, routing.WarRecognitionsPrefix, war_routing_key, pubsub.SimpleQueueDurable, handlerWar(game_state))
+	if err != nil {
+		fmt.Errorf("error: %v", err)
+	}
 
 	err = pubsub.SubscribeJSON(connection, routing.ExchangePerilDirect, queueName, routing.PauseKey, pubsub.SimpleQueueTransient, handlerPause(game_state))
 	if err != nil {
@@ -41,7 +49,7 @@ func main() {
 	key := routing.ArmyMovesPrefix + "." + "*"
 	qName := routing.ArmyMovesPrefix + "." + userName
 
-	err = pubsub.SubscribeJSON(connection, routing.ExchangePerilTopic, qName, key, pubsub.SimpleQueueTransient, handlerMove(game_state))
+	err = pubsub.SubscribeJSON(connection, routing.ExchangePerilTopic, qName, key, pubsub.SimpleQueueTransient, handlerMove(game_state, ch))
 	if err != nil {
 		fmt.Printf("error: %v", err)
 	}
