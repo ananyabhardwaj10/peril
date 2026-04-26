@@ -81,6 +81,11 @@ func SubscribeJSON[T any](conn *amqp.Connection, exchange, queueName, key string
 		return err 
 	}
 
+	err = ch.Qos(10, 0, false)
+	if err != nil {
+		return err 
+	}
+
 	delivery_chan, err := ch.Consume(queue.Name, "", false, false, false, false, nil)
 	if err != nil {
 		return err 
@@ -148,6 +153,11 @@ func HelperPublish(ch *amqp.Channel, userName, msg string) error {
 
 func SubscribeGob[T any](conn *amqp.Connection, exchange, queueName, key string, queueType SimpleQueueType, handler func(T) AckType) error {
 	ch, queue, err := DeclareAndBind(conn, exchange, queueName, key, queueType)
+	if err != nil {
+		return err 
+	}
+
+	err = ch.Qos(10, 0, false)
 	if err != nil {
 		return err 
 	}
