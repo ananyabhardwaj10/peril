@@ -36,7 +36,7 @@ func main() {
 
 	war_routing_key := routing.WarRecognitionsPrefix + "." + "*"
 
-	err = pubsub.SubscribeJSON(connection, routing.ExchangePerilTopic, routing.WarRecognitionsPrefix, war_routing_key, pubsub.SimpleQueueDurable, handlerWar(game_state))
+	err = pubsub.SubscribeJSON(connection, routing.ExchangePerilTopic, routing.WarRecognitionsPrefix, war_routing_key, pubsub.SimpleQueueDurable, handlerWar(game_state, ch))
 	if err != nil {
 		fmt.Errorf("error: %v", err)
 	}

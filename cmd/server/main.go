@@ -36,12 +36,12 @@ func main() {
 
 	key := routing.GameLogSlug + "." + "*"
 
-	_, queue, err := pubsub.DeclareAndBind(connection, routing.ExchangePerilTopic, routing.GameLogSlug, key, pubsub.SimpleQueueDurable)
+	err = pubsub.SubscribeGob(connection, routing.ExchangePerilTopic, routing.GameLogSlug, key, pubsub.SimpleQueueDurable, handlerLogs)
 	if err != nil {
-		log.Fatalf("Error creating and binding the queue", err)
+		log.Fatalf("Error subscribing to the games log queue", err)
 	}
 
-	fmt.Printf("Queue %v declared and bound!\n", queue.Name)
+	fmt.Printf("Queue %v declared, bound and subscribed!\n", routing.GameLogSlug)
 
 	gamelogic.PrintServerHelp()
 

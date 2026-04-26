@@ -43,19 +43,33 @@ func handlerMove(gs *gamelogic.GameState, ch *amqp.Channel) (func(gamelogic.Army
 	}
 }
 
-func handlerWar(gs *gamelogic.GameState) (func(gamelogic.RecognitionOfWar) pubsub.AckType) {
+func handlerWar(gs *gamelogic.GameState, ch *amqp.Channel) (func(gamelogic.RecognitionOfWar) pubsub.AckType) {
+	userName := gs.GetUsername()
 	return func(rw gamelogic.RecognitionOfWar) pubsub.AckType {
 		defer fmt.Print("> ")
-		outCome, _, _ := gs.HandleWar(rw) 
+		outCome, winner, loser := gs.HandleWar(rw) 
 		if outCome == gamelogic.WarOutcomeNotInvolved {
 			return pubsub.NACKREQUEUE
 		} else if outCome == gamelogic.WarOutcomeNoUnits {
 			return pubsub.NACKDISCARD 
-		} else if outCome == gamelogic.WarOutcomeOpponentWon || outCome == gamelogic.WarOutcomeYouWon || outCome == gamelogic.WarOutcomeDraw{
+		} else if outCome == gamelogic.WarOutcomeOpponentWon || outCome == gamelogic.WarOutcomeYouWon {
+			msg := winner + " won a war against " + loser
+			err := pubsub.HelperPublish(ch, userName, msg)
+			if err != nil {
+				return pubsub.NACKREQUEUE
+			}
 			return pubsub.ACK 
+		} else if outCome == gamelogic.WarOutcomeDraw {
+			msg := "A war between " + winner + " and " + loser + " resulted in a draw"
+			err := pubsub.HelperPublish(ch, userName, msg)
+			if err != nil {
+				return pubsub.NACKREQUEUE
+			}
+			return pubsub.ACK
 		} else {
 			fmt.Printf("Unknown outcome!")
 			return pubsub.NACKDISCARD
 		}
 	}
 }
+

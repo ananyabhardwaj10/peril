@@ -1,9 +1,13 @@
 package pubsub 
 import(
 	"encoding/json"
+	"encoding/gob"
 	"log"
 	"context"
+	"bytes"
 	"fmt"
+	"time"
+	"github.com/bootdotdev/learn-pub-sub-starter/internal/routing"
 	amqp "github.com/rabbitmq/amqp091-go"
 )
 
@@ -86,6 +90,79 @@ func SubscribeJSON[T any](conn *amqp.Connection, exchange, queueName, key string
 		for message := range delivery_chan {
 			var data T
 			err = json.Unmarshal(message.Body, &data)
+			if err != nil {
+				log.Printf("error: %v", err)
+				continue
+			}
+		
+			ack_type := handler(data)
+			if ack_type == ACK {
+				message.Ack(false) 
+				fmt.Println("ack occurred")
+			} else if ack_type == NACKREQUEUE {
+				message.Nack(false, true)
+				fmt.Println("nack and requeued")
+			} else {
+				message.Nack(false, false)
+				fmt.Println("nack and discarded")
+			}
+		}
+	}()	
+
+	return nil 
+}
+
+func PublishGob[T any](ch *amqp.Channel, exchange, key string, val T) error {
+	var data bytes.Buffer 
+	encoder := gob.NewEncoder(&data)
+	err := encoder.Encode(val)
+	if err != nil {
+		return err
+	}
+
+	err = ch.PublishWithContext(context.Background(), exchange, key, false, false, amqp.Publishing {
+		ContentType: "application/gob", 
+		Body: data.Bytes(),
+	})
+	if err != nil {
+		return err
+	}
+
+	return nil 
+}
+
+func HelperPublish(ch *amqp.Channel, userName, msg string) error {
+	routingKey := routing.GameLogSlug + "." + userName
+
+	err := PublishGob(ch, routing.ExchangePerilTopic, routingKey, routing.GameLog{
+		CurrentTime: time.Now(),
+		Message: msg, 
+		Username: userName,
+	})
+	if err != nil {
+		return err 
+	}
+
+	return nil 
+}
+
+func SubscribeGob[T any](conn *amqp.Connection, exchange, queueName, key string, queueType SimpleQueueType, handler func(T) AckType) error {
+	ch, queue, err := DeclareAndBind(conn, exchange, queueName, key, queueType)
+	if err != nil {
+		return err 
+	}
+
+	delivery_chan, err := ch.Consume(queue.Name, "", false, false, false, false, nil)
+	if err != nil {
+		return err 
+	}
+
+	go func() {
+		for message := range delivery_chan {
+			var data T
+			buff := bytes.NewReader(message.Body)
+			decoder := gob.NewDecoder(buff)
+			err = decoder.Decode(&data)
 			if err != nil {
 				log.Printf("error: %v", err)
 				continue
